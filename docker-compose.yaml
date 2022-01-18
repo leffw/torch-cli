@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  bitcoin:
+    image: ghcr.io/vulpemventures/bitcoin:latest
+    container_name: torch.bitcoin
+    command:
+      - --datadir=/home/bitcoin/.bitcoin
+      - -reindex
+    ports:
+      - 18443:18443
+      - 18444:18444
+
+      - 28332:28332
+      - 28333:28333
+    volumes:
+      - ${HOME}/.torch/data/bitcoin:/home/bitcoin/.bitcoin
+    restart: always
