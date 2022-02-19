@@ -15,6 +15,33 @@ with open(f'{path}/docker-compose.yaml') as file:
     docker_compose = safe_load(file)
 
 
+def exec_cli(name: str, command: str, interactive=True, stdin=False):
+    '''Run Commands in Node Bitcoin / Lnd'''
+    if not name in docker_compose.get('services').keys():
+        raise Exception('Node does not exist.')
+
+    if name == 'bitcoin':
+        command = f'torch.bitcoin bitcoin-cli --regtest {command}'
+    else:
+        command = command.split("|")
+        if len(command) == 1:
+            command = ["", command[0]]
+
+        port = docker_compose['services'][name]['ports'][1].split(':')[0]        
+        command = (command[0] + "| " if (stdin == True) else "") + \
+            f'lncli --network regtest --rpcserver=127.0.0.1:{port} --lnddir=/root/.lnd --tlscertpath=/root/.lnd/tls.cert {command[1]}'
+    
+    if interactive == True:
+        system(f'docker exec -i -t torch.{name} sh -c "{command}"')
+    else:
+        execute = Popen(
+            f'docker exec -i -t torch.{name} sh -c "{command}"', shell=True, stdout=PIPE).communicate()[0].decode('utf-8')
+        try:
+            return json.loads(execute)
+        except:
+            return execute
+
+
 @click.group()
 def cli():
     '''Bitcoin & Lightning Container Manager for facilitating development tools.
@@ -74,9 +101,9 @@ def create(name: str):
     with open(f'{path}/docker-compose.yaml', 'w') as file:
         dump(docker_compose, file)
 
-    system(
-        f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
-    print(json.dumps(docker_compose['services'][name], indent=3))
+    system(f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
+    system(f'docker-compose -f {path}/docker-compose.yaml up -d --remove-orphans')
+    print(f'Node {name} create.')
 
 
 @cli.command()
@@ -98,7 +125,6 @@ def remove(name: str):
 
     with open(f'{path}/docker-compose.yaml', 'w') as file:
         dump(docker_compose, file)
-
     print(f'Node {name} removed.')
 
 
@@ -127,23 +153,6 @@ def stop():
 def logs(name: str):
     '''View logs from a container'''
     system(f'docker logs torch.{name}')
-
-
-def exec_cli(name: str, command: str, interactive=True):
-    '''Run Commands in Node Bitcoin / Lnd'''
-    if not name in docker_compose.get('services').keys():
-        raise Exception('Node does not exist.')
-
-    if name == 'bitcoin':
-        command = f'torch.bitcoin bitcoin-cli --regtest {command}'
-    else:
-        port = docker_compose['services'][name]['ports'][1].split(':')[0]
-        command = f'torch.{name} lncli --network regtest --rpcserver=127.0.0.1:{port} --lnddir=/root/.lnd --tlscertpath=/root/.lnd/tls.cert {command}'
-
-    if interactive == True:
-        system(f'docker exec -i -t {command}')
-    else:
-        return json.loads(Popen(f'docker exec -i -t {command}', shell=True, stdout=PIPE).communicate()[0].decode('utf-8'))
 
 
 @cli.command('exec')
@@ -209,6 +218,21 @@ def openchannel(node_from: str, node_to: str, amount: int):
     exec_cli(node_from, f'openchannel {identity_pubkey} {amount}')
     exec_cli('bitcoin', f'-generate 3')
 
+
+@cli.command()
+@click.argument("node")
+@click.argument("password")
+@click.option("--all", is_flag=True)
+def unlock(password: str, node: str, all: str):
+    '''Unlock nodes.'''
+    if all == True:
+        nodes = list(docker_compose['services'].keys())
+        for alias in nodes:
+            if alias == "bitcoin":
+                continue
+            exec_cli(alias, f'echo {password} | unlock --stdin', interactive=True, stdin=True)
+    else:
+        exec_cli(node, f'echo {password} | unlock --stdin', stdin=True)
 
 if __name__ == '__main__':
     cli()
