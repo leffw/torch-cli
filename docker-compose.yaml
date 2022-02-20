@@ -13,6 +13,7 @@ services:
 
       - 28332:28332
       - 28333:28333
+      - 28334:28334
     volumes:
       - ${HOME}/.torch/data/bitcoin:/home/bitcoin/.bitcoin
     restart: always
