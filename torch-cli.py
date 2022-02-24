@@ -21,7 +21,7 @@ def exec_cli(name: str, command: str, interactive=True, stdin=False):
         raise Exception('Node does not exist.')
 
     if name == 'bitcoin':
-        command = f'torch.bitcoin bitcoin-cli --regtest {command}'
+        command = f'bitcoin-cli --regtest {command}'
     else:
         command = command.split("|")
         if len(command) == 1:
@@ -32,10 +32,12 @@ def exec_cli(name: str, command: str, interactive=True, stdin=False):
             f'lncli --network regtest --rpcserver=127.0.0.1:{port} --lnddir=/root/.lnd --tlscertpath=/root/.lnd/tls.cert {command[1]}'
     
     if interactive == True:
-        system(f'docker exec -i -t torch.{name} sh -c "{command}"')
+        if stdin == True:
+            system(f'docker exec -i -t torch.{name} sh -c {command}')
+        else:
+            system(f'docker exec -i -t torch.{name} {command}')
     else:
-        execute = Popen(
-            f'docker exec -i -t torch.{name} sh -c "{command}"', shell=True, stdout=PIPE).communicate()[0].decode('utf-8')
+        execute = Popen(f'docker exec -i torch.{name} sh -c {command}', shell=True, stdout=PIPE).communicate()[0].decode('utf-8')
         try:
             return json.loads(execute)
         except:
@@ -137,8 +139,7 @@ def restart():
 @cli.command()
 def start():
     '''Start all containers'''
-    system(
-        f'docker-compose -f {path}/docker-compose.yaml up -d --remove-orphans')
+    system(f'docker-compose -f {path}/docker-compose.yaml up -d --remove-orphans')
 
 
 @cli.command()
