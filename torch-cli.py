@@ -33,11 +33,11 @@ def exec_cli(name: str, command: str, interactive=True, stdin=False):
     
     if interactive == True:
         if stdin == True:
-            system(f'docker exec -i -t torch.{name} sh -c {command}')
+            system(f'docker exec -i -t torch.{name} sh -c "{command}"')
         else:
             system(f'docker exec -i -t torch.{name} {command}')
     else:
-        execute = Popen(f'docker exec -i torch.{name} sh -c {command}', shell=True, stdout=PIPE).communicate()[0].decode('utf-8')
+        execute = Popen(f'docker exec -i torch.{name} sh -c "{command}"', shell=True, stdout=PIPE).communicate()[0].decode('utf-8')
         try:
             return json.loads(execute)
         except:
