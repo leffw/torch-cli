@@ -7,8 +7,8 @@ Bitcoin & Lightning Container Manager for facilitating development tools.
 
 * Download and Install Software
 ```bash
-$ git clone https://github.com/GrayFinance/torch-cli.git
-$ cd torch-cli
-$ bash install.sh
-$ torch-cli
+git clone https://github.com/GrayFinance/torch-cli.git
+cd torch-cli
+bash install.sh
+torch-cli
 ```
