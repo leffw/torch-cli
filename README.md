@@ -1,7 +1,4 @@
 # Torch-cli
-
-<img src="./images/logo.png" height=150>
-
 [![Donate](https://img.shields.io/badge/Donate-Bitcoin-green.svg)](https://coinos.io/grayfinance)
 
 Bitcoin & Lightning Container Manager for facilitating development tools.
