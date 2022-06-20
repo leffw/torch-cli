@@ -5,6 +5,8 @@ from os.path import expanduser, exists
 from yaml import safe_load, dump
 from os import mkdir, system
 
+import requests
+import lnurl
 import click
 import json
 
@@ -14,7 +16,7 @@ with open(f'{path}/docker-compose.yaml') as file:
     docker_compose = safe_load(file)
 
 def exec_cli(name: str, command: str, interactive=True, stdin=False):
-    """Run Commands in Node Bitcoin / Lnd"""
+    '''Run Commands in Node Bitcoin / Lnd'''
     if not name in docker_compose.get('services').keys():
         raise Exception('Node does not exist.')
 
@@ -44,14 +46,15 @@ def exec_cli(name: str, command: str, interactive=True, stdin=False):
 
 @click.group()
 def cli():
-    """Bitcoin & Lightning Container Manager for facilitating development tools.
-    """
+    '''Bitcoin & Lightning Container Manager for facilitating development tools.
+    '''
     ...
+
 
 @cli.command()
 @click.argument("name")
 def create(name: str):
-    """Create a new LND container"""
+    '''Create a new LND container'''
     if name in docker_compose.get('services').keys():
         raise Exception('Node already exists.')
 
@@ -104,46 +107,52 @@ def create(name: str):
     system(f'docker-compose -f {path}/docker-compose.yaml up -d --remove-orphans')
     print(f'Node {name} create.')
 
+
 @cli.command()
 @click.argument('name')
 def remove(name: str):
-    """Remove container"""
+    '''Remove container'''
     if not name in docker_compose.get('services').keys():
         raise Exception('Node does not exist.')
 
     if name == 'bitcoin':
         raise Exception('It is not possible to remove bitcoin.')
     else:
-        system(f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
+        system(
+            f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
 
-        docker_compose['services'].pop(name)
-        if exists(f'{path}/data/{name}') == True:
-            system(f'sudo rm -rf {path}/data/{name}')
-        else:
-            with open(f'{path}/docker-compose.yaml', 'w') as file:
-                dump(docker_compose, file)
-            print(f'Node {name} removed.')
+    docker_compose['services'].pop(name)
+    if exists(f'{path}/data/{name}') == True:
+        system(f'sudo rm -rf {path}/data/{name}')
+
+    with open(f'{path}/docker-compose.yaml', 'w') as file:
+        dump(docker_compose, file)
+    print(f'Node {name} removed.')
+
 
 @cli.command()
 def restart():
-    """Restart containers"""
+    '''Restart containers'''
     system(f'docker-compose -f {path}/docker-compose.yaml restart')
+
 
 @cli.command()
 def start():
-    """Start all containers"""
+    '''Start all containers'''
     system(f'docker-compose -f {path}/docker-compose.yaml up -d --remove-orphans')
+
 
 @cli.command()
 def stop():
-    """Stop all containers"""
-    system(f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
+    '''Stop all containers'''
+    system(
+        f'docker-compose -f {path}/docker-compose.yaml down --remove-orphans')
 
 
 @cli.command()
 @click.argument("name")
 def logs(name: str):
-    """View logs from a container"""
+    '''View logs from a container'''
     system(f'docker logs torch.{name}')
 
 
@@ -151,13 +160,14 @@ def logs(name: str):
 @click.argument('name')
 @click.argument('command', nargs=-1)
 def rpc_exec(name: str, command: str):
-    """Execute command in node"""
+    '''Execute command in node'''
     exec_cli(name, ' '.join(command))
+
 
 @cli.command()
 @click.argument('nblock')
 def mining(nblock: int):
-    """Generate new blocks"""
+    '''Generate new blocks'''
     exec_cli('bitcoin', f'-generate {nblock}')
 
 
@@ -165,7 +175,7 @@ def mining(nblock: int):
 @click.argument('address')
 @click.argument('amount', type=click.INT)
 def faucet(address: str, amount: int):
-    """Send Bitcoin to an address"""
+    '''Send Bitcoin to an address'''
     amount = amount / (10 ** 8)
     exec_cli(
         'bitcoin', f'-named sendtoaddress address={address} amount={amount:.8f} fee_rate=25')
@@ -174,7 +184,7 @@ def faucet(address: str, amount: int):
 @cli.command()
 @click.argument('name')
 def config(name: str):
-    """Shows container config"""
+    '''Shows container config'''
     if not name in docker_compose.get('services').keys():
         raise Exception('Node does not exist.')
     else:
@@ -183,36 +193,40 @@ def config(name: str):
 
 @cli.command()
 def listnodes():
-    """List names of all nodes"""
+    '''List names of all nodes'''
     print(json.dumps(
         {"nodes": list(docker_compose['services'].keys())}, indent=3))
+
 
 @cli.command()
 @click.argument("node_from")
 @click.argument("node_to")
 def connect(node_from: str, node_to: str):
-    """Connect to one another using the container name"""
+    '''Connect to one another using the container name'''
     node_to_info = exec_cli(node_to, 'getinfo', interactive=False)
     node_to_uri = node_to_info['uris'][0]
     exec_cli(node_from, f'connect {node_to_uri}')
+
 
 @cli.command()
 @click.argument("node_from")
 @click.argument("node_to")
 @click.argument("amount", type=click.INT)
 def openchannel(node_from: str, node_to: str, amount: int):
-    """Open a new channel using container name"""
-    identity_pubkey = exec_cli(node_to, 'getinfo', interactive=False)["identity_pubkey"]
+    '''Open a new channel using container name'''
+    identity_pubkey = exec_cli(node_to, 'getinfo', interactive=False)[
+        "identity_pubkey"]
     exec_cli(node_from, f'openchannel {identity_pubkey} {amount}')
     exec_cli('bitcoin', f'-generate 3')
+
 
 @cli.command()
 @click.argument("node")
 @click.argument("password")
 @click.option("--all", is_flag=True)
 def unlock(password: str, node: str, all: str):
-    """Unlock nodes."""
-    if all == True:
+    '''Unlock nodes.'''
+    if (all == True):
         nodes = list(docker_compose['services'].keys())
         for alias in nodes:
             if alias == "bitcoin":
@@ -220,6 +234,26 @@ def unlock(password: str, node: str, all: str):
             exec_cli(alias, f'echo {password} | unlock --stdin', interactive=True, stdin=True)
     else:
         exec_cli(node, f'echo {password} | unlock --stdin', stdin=True)
+
+@cli.command()
+@click.argument("node")
+@click.argument("lnurl_code")
+@click.option("--amount")
+def paylnurl(node: str, lnurl_code: str, amount: int):
+    get_data_pay = requests.get(str(lnurl.lnurl_decode(lnurl_code))).json()
+    if (get_data_pay["tag"] != "payRequest"):
+        raise Exception("Not is payRequest.")
+    elif (amount != None) and (amount > get_data_pay["maxSendable"] or amount < get_data_pay["minSendable"]):
+        raise Exception("Value is invalid.")
+    else:
+        print(json.dumps(get_data_pay, indent=3))
+
+    if (amount == None):
+        amount = input("\nEnter the amount you want to pay: ")
+    
+    get_invoice = requests.get(get_data_pay["callback"], params={"amount": amount}).json()
+    print(json.dumps(get_data_pay, indent=3))
+    exec_cli(node, f'payinvoice %s' % (get_invoice["pr"]))
 
 if __name__ == '__main__':
     cli()
