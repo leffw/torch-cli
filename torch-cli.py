@@ -252,7 +252,7 @@ def paylnurl(node: str, lnurl_code: str, amount: int):
         amount = input("\nEnter the amount you want to pay: ")
     
     get_invoice = requests.get(get_data_pay["callback"], params={"amount": amount}).json()
-    print(json.dumps(get_data_pay, indent=3))
+    print(json.dumps(get_invoice, indent=3))
     exec_cli(node, f'payinvoice %s' % (get_invoice["pr"]))
 
 if __name__ == '__main__':
